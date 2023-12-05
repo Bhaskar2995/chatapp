@@ -1,27 +1,39 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import './login.dart';
+import './auth.dart';
 
-class AuthScreen extends StatefulWidget {
-  AuthScreen({Key? key}) : super(key: key);
+class Login extends StatefulWidget {
+  Login({Key? key}) : super(key: key);
 
   @override
-  // ignore: no_logic_in_create_state
-  State<AuthScreen> createState() {
-    return _AuthScreenState();
+  State<Login> createState() {
+    return _LoginState();
   }
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
   final _firebase = FirebaseAuth.instance;
 
   var _enteredEmail = '';
   var _enteredPassword = '';
+  var _enteredConfirmPassword = '';
 
   void _submit() async {
     final isValid = _formKey.currentState!.validate();
+
+    print(isValid);
+
+    if (_enteredPassword != _enteredConfirmPassword) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('password and confirm password must be same'),
+        ),
+      );
+      return;
+    }
 
     if (!isValid) return;
 
@@ -30,8 +42,11 @@ class _AuthScreenState extends State<AuthScreen> {
     print(_enteredPassword);
 
     try {
-      final userCredentials = await _firebase.createUserWithEmailAndPassword(
+      final userCredentials = await _firebase.signInWithEmailAndPassword(
           email: _enteredEmail, password: _enteredPassword);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('user login successful')));
     } on FirebaseAuthException catch (error) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,21 +116,32 @@ class _AuthScreenState extends State<AuthScreen> {
                             _enteredPassword = value!;
                           },
                         ),
+                        TextFormField(
+                          decoration: const InputDecoration(
+                              labelText: "Confirm Password"),
+                          style: const TextStyle(fontSize: 18),
+                          obscureText: true,
+                          onSaved: (value) {
+                            _enteredConfirmPassword = value!;
+                          },
+                        ),
                         const SizedBox(
                           height: 20,
                         ),
                         ElevatedButton(
                           onPressed: _submit,
-                          child: Text('Sign up'),
+                          child: const Text('Login'),
                         ),
                         InkWell(
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => Login()),
+                              MaterialPageRoute(
+                                  builder: (context) => AuthScreen()),
                             );
                           },
-                          child: Text('Already have an account ? Login here'),
+                          child: const Text(
+                              'Dont have an account ? Register here'),
                         ),
                       ]),
                     ),
