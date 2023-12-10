@@ -1,10 +1,15 @@
+import 'dart:io';
+
+import 'package:chat_application/screens/chatScreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import './auth.dart';
+import '../widgets/image_picker_widget.dart';
 
 class Login extends StatefulWidget {
-  Login({Key? key}) : super(key: key);
+  Login({super.key});
 
   @override
   State<Login> createState() {
@@ -19,6 +24,8 @@ class _LoginState extends State<Login> {
   var _enteredEmail = '';
   var _enteredPassword = '';
   var _enteredConfirmPassword = '';
+  File? _selectedimage;
+  var isAuthenticating = false;
 
   void _submit() async {
     final isValid = _formKey.currentState!.validate();
@@ -35,23 +42,41 @@ class _LoginState extends State<Login> {
       return;
     }
 
-    if (!isValid) return;
+    if (!isValid || _selectedimage == null) return;
 
     _formKey.currentState!.save();
     print(_enteredEmail);
     print(_enteredPassword);
 
     try {
-      final userCredentials = await _firebase.signInWithEmailAndPassword(
+      setState(() {
+        isAuthenticating = true;
+      });
+      final userCredentials = await _firebase.createUserWithEmailAndPassword(
           email: _enteredEmail, password: _enteredPassword);
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('user login successful')));
+
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('user_images')
+          .child('${userCredentials.user!.uid}.jpg');
+
+      await storageRef.putFile(_selectedimage!);
+      final imageUrl = await storageRef.getDownloadURL();
+      print(imageUrl);
+
+      Navigator.pop(
+        context,
+        MaterialPageRoute(builder: (context) => ChatScreen()),
+      );
     } on FirebaseAuthException catch (error) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.message ?? 'Authentication failed')));
     }
+
+    setState(() {
+      isAuthenticating = false;
+    });
   }
 
   @override
@@ -81,6 +106,9 @@ class _LoginState extends State<Login> {
                     child: Form(
                       key: _formKey,
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        UserImagePicker(onPickimage: (pickedImage) {
+                          _selectedimage = pickedImage;
+                        }),
                         TextFormField(
                           decoration:
                               const InputDecoration(labelText: "email address"),
@@ -128,21 +156,25 @@ class _LoginState extends State<Login> {
                         const SizedBox(
                           height: 20,
                         ),
-                        ElevatedButton(
-                          onPressed: _submit,
-                          child: const Text('Login'),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => AuthScreen()),
-                            );
-                          },
-                          child: const Text(
-                              'Dont have an account ? Register here'),
-                        ),
+                        if (isAuthenticating == false)
+                          ElevatedButton(
+                            onPressed: _submit,
+                            child: const Text('Sign up'),
+                          ),
+                        if (isAuthenticating == false)
+                          InkWell(
+                            onTap: () {
+                              Navigator.pop(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => AuthScreen()),
+                              );
+                            },
+                            child: const Text(
+                                'Already have an account ? Login here'),
+                          ),
+                        if (isAuthenticating == true)
+                          CircularProgressIndicator()
                       ]),
                     ),
                   ),
